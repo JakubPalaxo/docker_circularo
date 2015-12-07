@@ -1,0 +1,432 @@
+= How to prepare Circularo DOCKER file
+PALAXO Inc. <info@palaxo.com>
+1.0, July 29, 2014, Asciidoctor 1.5 article template
+:toc:
+:icons: font
+
+
+
+Doc tips & hint:
+
+1.  Use pragraph styles + add-oan for better formatting
+
+1.  Do not use tab in the first line of paragraph..
+
+1.  Add new chapter specifically about how to deploy Circularo in Docker...or better prepare docker file with instruction how to run that…
+
+1.  Is there really everything we need to prepare Docker file for Circularo?
+
+1.  Next stage should be have this gdoc in ASCIIDOC and versioned on Github..
+
+
+== INTRODUCTION
+
+In this document is used Docker in version 1.8 and Ubuntu 14.04 as operating system. Ubuntu is used because current version of Windows OS (Win10) is not currently able to run Docker due to some changes in networking part of Windows. Older version should run OK but i cannot test it.
+
+
+== INSTALLATION
+
+1) Use wget to download install shell script from docker website and run it:
+[source,]
+----
+$ wget -qO- https://get.docker.com/ | sh
+----
+
+
+2)  To verify, that docker is working and installed correctly, try to run prepared docker instance (it will be downloaded automatically from Docker Hub)
+
+[source,]
+----
+$ docker run hello-world
+----
+You should see something like this:
+[source,]
+----
+Unable to find image 'hello-world:latest' locally  
+511136ea3c5a: Pull complete  
+31cbccb51277: Pull complete  
+e45a5af57b00: Pull complete  
+hello-world:latest: The image you are pulling has been verified.  
+Important: image verification is a tech preview feature and should not be  
+relied on to provide security.  
+Status: Downloaded newer image for hello-world:latest  
+Hello from Docker.  
+This message shows that your installation appears to be working correctly.  
+
+To generate this message, Docker took the following steps:  
+1. The Docker client contacted the Docker daemon.  
+2. The Docker daemon pulled the "hello-world" image from the Docker Hub.  
+   (Assuming it was not already locally available.)  
+3. The Docker daemon created a new container from that image which runs the  
+executable that produces the output you are currently reading.  
+4. The Docker daemon streamed that output to the Docker client, which sent it to your terminal.  
+
+To try something more ambitious, you can run an Ubuntu container with:  
+$ docker run -it ubuntu bash  
+
+For more examples and ideas, visit:  
+https://docs.docker.com/userguide/
+----
+**If you can see this output, the you have installed Docker correctly and you can start to use it.**
+
+== DOCKER HUB
+
+It can be found here: https://hub.docker.com/explore/[https://hub.docker.com/explore/]
+
+**
+Here you can find more than 80 prepared docker images. Some very small and basic (like busy-box) and some full-feature Linux distros like Ubuntu.
+**  
+
+=== WHAT IS IT FOR
+
+When you are creating your own image, you need to start with something and most of the time it will be some of prepared images. You then only add files and programs you need for your task.
+
+== NODEJS
+
+
+Using Docker to encapsulate NodeJS application. As an example in this chapter I will use &nbsp;restelasticsearch. 
+
+So if you want to create container which can run NodeJS application you will need few things:
+
+1.  Linux disto where it will all run (see Docker Hub chapter)**
+
+1.  nodejs and npm
+
+1.  run npm to get all packages**
+
+These are all basic steps we need to make to run our app. 
+
+=== Dockerfile
+
+Docker allows you to build new images through something called Dockerfile. Its simply a file which contains commands on how to build your images. This is very practical because you can write it all in one place and then just build it. If you want to change it later it's much more practical then install everything “by hand”.
+
+Our Docker machine will be based on current CentOS. That means at the beginning of our Dockerfile will be this line:
+
+**FROM** {nbsp} centos:latest
+
+This means we will get current CentOS distro to build on. centos means we are looking for CentOS container and latest means that we want most recent version available. Available version are listed on Docker hub. For example here is CentOS page:
+
+image::http://www.palaxo.com/docsres/centos.png[]
+
+Here you can see available version you can use (latest, centos7, centos6, …). 
+
+Next we need to download NodeJS. We can use prepared package from fedoraproject. 
+[source,]
+----
+RUN	rpm -Uvh http://mirror.karneval.cz/pub/linux/fedora/epel//7/x86_64/e/epel-release-7-5.noarch.rpm
+----
+This will download and install epel rpm which contains NodeJS. Next we would need to download npm to install all required packages for our application.
+
+[source,]
+----
+RUN	yum install -y npm
+----
+For extracting those packages we need tar and bzip2.
+
+[source,]
+----
+RUN yum install -y tar
+RUN yum install -y bzip2
+----
+Now we need to copy our project files into centos image. This can be achieved by this command.
+
+[source,]
+----
+COPY <src> <dest> /you  need to  replace  <src> and <dest>  by source and destination of your files
+----
+
+This will copy whatever is in src to destination folder. Next we need to install required NodeJs packages for our application to run.
+[source,]
+----
+RUN cd /elastic; npm install
+----
+To be able to connect to our application from outside of container we need to expose this port to host environment.
+[source,]
+----
+EXPOSE 3000
+----
+This last command doesn't have to be here you can put as a parameter when running container. This tells Docker what command to run, after container is running. Here its change directory to /elastic and run our application.
+[source,]
+----
+CMD cd /elastic; node app.js
+----
+NOTE: When I tried it first, I didn't split it into two parts (first cd and then run node), but I only used one command CMD node /elastic/app.js. I have no idea Why, but it didn't work.
+
+**And thats all. Whole file looks like this:**
+[source,]
+----
+FROM centos:latest
+
+RUN rpm -Uvh http://mirror.karneval.cz/pub/linux/fedora/epel//7/x86_64/e/epel-release-7-5.noarch.rpm
+
+RUN yum install -y npm
+
+RUN yum install -y tar
+
+RUN yum install -y bzip2
+
+COPY restelasticsearch /elastic
+
+RUN cd /elastic; npm install
+
+EXPOSE &nbsp;3000
+
+CMD cd /elastic; node app.js
+----
+
+=== Build
+
+We have our Dockerfile ready. Now we need to build our image. We can do this by running this command in terminal:
+
+[source,]
+----
+$ sudo docker build -t node_test_centos .
+----
+
+**
+This will run for few minutes (depending on speed of your Internet connection), but i will end something like this (container IDs may differ):
+**  
+
+
+    Step 10 : EXPOSE 3000
+         ---> Running in 6ee76c4517dc
+         ---> dde06404c361
+        Removing intermediate container 6ee76c4517dc
+    Step 11 : CMD node /src/app.js
+        ---> Running in 1ffbf0334543
+        ---> a1723237751a
+    Removing intermediate container 1ffbf0334543
+    Successfully built a1723237751a
+
+
+Name of our image will be “node_test_centos”. The dot (“.”) at the end of build cammand marks location of your Dockerfile.
+
+=== Running Node container
+After build finisher we have file “node_test_centos” ready to run. This command will actually run container with our image:
+[source,]
+----
+$ sudo docker run -p 49001:3000 node_test_centos
+----
+Atribute -p tells docker that port 49001 in host enviromet will be mapped to EXPOSED port 3000 (see Dockerfile). Name of image to run is node_test_centos and thats it. Now we can test if our application is really running and communicates with host environment. This can be done by using curl command. Open another terminal window and enter this command:
+[source,]
+----
+$ curl 127.0.0.1:49001/login
+----
+
+If everything is working correctly, we should get this response:
+**
+{"logged":false}
+**  
+
+This indicates we are not logged in and thats correct behavior because we really didn't sign up. If you get connection refused of empty response or anything else, you did something wrong.
+
+=== Stop container
+
+Everything you need to do is determine ID of container you want to stop by using this command:
+[source,]
+----
+$ sudo docker ps
+----
+You should get something like this:
+
+    CONTAINER ID	IMAGE			COMMAND			    ...
+    e741087a843f	node_test_centos	"/bin/sh -c 'cd /elas"      ...	 
+
+
+You only need the CONTAINER ID value. Then you can tell Docker which container to stop.
+
+[source,]
+----
+$ sudo docker stop e741087a843f
+----
+Then you have to wait for docker to stop container. When it happens, Docker prints out ID of stopped container and you get back terminal prompt.
+
+**e741087a843f**
+
+== ELASTICSEARCH
+
+Deploying Elasticsearch in Docker is very similar to deploying NodeJS (or anything else). So description in this chapter will be short. If you don't know what to do or you didn't read NodeJS chapter, please look at it. 
+
+=== Dockerfile 
+
+Main difference here will be that you need JVM (Java Virtual Machine) to run Elastic. Here is complete Dockerfile (for explanation look in NodeJS chapter).
+
+    FROM    centos:latest
+    RUN     yum install -y tar
+    RUN     yum install -y java-1.7.0-openjdk-devel
+    COPY	elasticsearch /elastic
+    EXPOSE	9200
+    CMD     cd /elastic/bin; ./elasticsearch
+    
+**
+	Now just build it with following command:
+**  
+[source,]
+----
+$ sudo docker build -t elastic_test_centos .
+----
+After few minutes (seconds) it should successfully build new image.
+
+=== Run and test
+You can run new container with our image like this:
+[source,]
+----
+$ sudo docker run -p 49002:9200 elastic_test_centos
+----
+To test if everything is running use curl command like this one:
+[source,]
+----
+$ curl 127.0.0.1:49002
+----
+You should get response similar to this:
+[source,]
+----
+**
+{
+"status" : 200,
+"name" : "Blockbuster",
+"cluster_name" : "elasticsearch",
+"version" : {
+"number" : "1.7.1",
+"build_hash" : "b88f43fc40b0bcd7f173a1f9ee2e97816de80b19",
+"build_timestamp" : "2015-07-29T09:54:16Z",
+"build_snapshot" : false,
+"lucene_version" : "4.10.4"
+},
+"tagline" : "You Know, for Search"
+
+}
+----
+**
+Congratulation, you have successfully deployed Elasticsearch to Docker.
+**
+
+== ANGULARJS
+
+Last but not least we need to deploy Angular frontend. For this, we will need a web server (Tomcat used here). So again, create new Dockerfile. This one will be extremely simple:
+[source,]
+----
+FROM tomcat:latest
+COPY Circularo-master /usr/local/tomcat/webapps
+----
+
+These two lines are all we really need to run our app. Next we build it:
+
+[source,]
+----
+$ sudo docker build -t tomcat_test2 .
+----
+
+And then we can run it:
+[source,]
+----
+$ sudo docker run -it -p 8888:8080 tomcat_test2
+----
+
+
+Now, when you put this: http://localhost:8888/Circularo-master/AngularJS/public/index.html#/home/inbox[http://localhost:8888/Circularo-master/AngularJS/public/] address in your web browser, you should see up and running Circularo.
+
+== ALL IN ONE
+
+In this chapter we will make everything from above running in one container. Like always we need to download all necessary files from GitHub (Circularo and restelasticsearch) and unzip them into Documents folder. 
+
+We also need ElasticSearch server. You can download it from Elastic website (https://www.elastic.co/downloads/elasticsearch[https://www.elastic.co/downloads/elasticsearch]). WARNING: There will be no data on elasticsearch server. If you want, you can copy any running ES instance we have.
+Next step is to create start.sh file, which will be execuded, when out container is up and running. Here is its content:
+
+    #!/bin/bash
+    cd /elasticsearch/bin/ && ./elasticsearch &
+    cd /tomcat/tomcat/bin/ && ./startup.sh &
+    cd /restelastic/ && node app.js**
+
+In files downloaded from GitHub we need to make some changes to run them on localhost. In Circularo-master/AngularJS/public/app.config.js you have to switch main_url value. Simply comment (place // before) main_url: 'http://109.123.216.91:3000/[http://109.123.216.91:3000/]', and uncomment &nbsp;main_url: 'http://localhost:3000/[http://localhost:3000/]'. You should end up with file looking like this:
+
+
+    /**
+    Circularo main configuration!
+    */
+    appConfig.config = {
+    main_url: 'http://localhost:3000/',
+    //main_url: 'http://109.123.216.91:3000/',
+    viewer: 'default',
+    rest: 'elastic',
+    suggestion_count: 100,
+    version: '15.0.0',
+    default_language: 'ar'
+    };
+    
+**
+Save the file and close it.
+**  
+
+Next we need to edit backend. In restelasticsearch-master/configs/config_moe.json you have to edit beginning of the file. You have to change ES host server address. You end up with config looking like this:
+
+    "server": {
+        "port": "3000",
+        "es": {
+        "host":"127.0.0.1:9200"
+            },
+    "swagger_ip": "localhost"
+        }
+        
+
+
+NOTE: If you don't change this config, then you will have all data from our testing environment and you don't have copy these data to your local instance. But as a result, not whole application will run on your machine.
+
+**
+Now we just need to create empty file and named it Dockerfile. So you will start with these files in your Documents folder:
+**  
+
+image::http://www.palaxo.com/docsres/dockfile.png[]
+
+Now open Dockerfile in you favorite text editor and paste this into it:
+
+
+    FROM    centos:latest
+    RUN     rpm -Uvh http://mirror.karneval.cz/pub/linux/fedora/epel//7/x86_64/e/ep         el-release-7-5.noarch.rpm
+    RUN     yum install -y npm
+    RUN     yum install -y tar
+    RUN     yum install -y bzip2
+    RUN     yum install -y java-1.7.0-openjdk-devel
+    RUN     yum install -y wget
+    RUN     mkdir tomcat
+    RUN     cd tomcat; wget http://apache.miloslavbrada.cz/tomcat/tomcat-8/v8.0.26/bin/apache-tomcat-8.0.26.tar.gz
+    RUN     cd tomcat; ls -la; tar -xvzf apache-tomcat-8.0.26.tar.gz
+    RUN     cd tomcat; mv apache-tomcat-8.0.26 tomcat
+    COPY    restelasticsearch-master /restelastic
+    COPY    elasticsearch /elasticsearch
+    COPY    Circularo-master /tomcat/tomcat/webapps
+    COPY    start.sh .
+    RUN     chmod 777 start.sh
+    RUN     cd /restelastic; npm install
+    EXPOSE  3000
+    EXPOSE  9200
+    EXPOSE  8080
+    CMD     ./start.sh
+    
+
+For explanation of Dockerfile content look in NodeJS chapter. Now, you can build this file using this command (you have to be in Documents folder of course):
+   
+[source,]
+----
+$ sudo docker build -t allinone .
+----
+
+**
+After build is complete you can run it like this:
+**  
+[source,]
+----
+$ sudo docker run -d -p 3000:3000 -p 9200:9200 -p 8080:8080 allinone
+----
+
+After couple of seconds all services should be up and running. 
+
+=== Testing
+
+You can test it by visiting: http://127.0.0.1:8080/AngularJS/public/[http://127.0.0.1:8080/AngularJS/public/]. If you can see Circularo app login page, then you know, that frontend is OK. 
+
+To test NodeJS you can visit http://127.0.0.1:3000[http://127.0.0.1:3000]. If you see Swagger, then backend is also OK.
+
+Last we have to test ElasticSearch you can do it by visiting http://127.0.0.1:9200[http://127.0.0.1:9200]. If you see basic info about ElasticSearch node you have successfully deployed Circularo in Docker.
+
+If you copied data from existing ES or you didn't change ES host address in Node, you should have fully functioning Circularo.
