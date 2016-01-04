@@ -3,8 +3,8 @@ PALAXO Inc. <info@palaxo.com>
 1.0, December 07, 2015, Docker_PALAXO documentation
 :toc:
 :icons: font
-:stylesheet: prim.css  
-:stylesdir:
+:uri-css: http://cra.verge.cz/prim.css
+
 
 
 Doc tips & hint:
